@@ -13,12 +13,13 @@ jobs:
       
     - name: Trigger Azure Function HTTP endpoint
       run: |
-        curl -X POST https://your-function-url/api/HttpTrigger1
+        curl -X POST $FUNCTION_URL/api/HttpTrigger1
       env:
         FUNCTION_URL: ${{ secrets.FUNCTION_URL }} # Add your function URL as a secret
 
+
     - name: Run PowerShell script
-      uses: microsoft/powershell@v1
+      uses: azure/powershell@v2
       with:
         pwsh: 'pwsh'
         script: |
