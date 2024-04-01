@@ -1,0 +1,25 @@
+name: Azure Function PowerShell Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run_function_and_script:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Trigger Azure Function HTTP endpoint
+      run: |
+        curl -X POST https://your-function-url/api/HttpTrigger1
+      env:
+        FUNCTION_URL: ${{ secrets.FUNCTION_URL }} # Add your function URL as a secret
+
+    - name: Run PowerShell script
+      uses: microsoft/powershell@v1
+      with:
+        pwsh: 'pwsh'
+        script: |
+          .\synapse\dwscript.ps1 -adminsgroupname 'AD-SEC-ALL-GLO-GLSM-ADMINS' -developersgroupname 'AD-SEC-ALL-GLO-GLSM-DEVELOPERS' -readersgroupname 'AZ-SEC-NONPROD-GLO-NOOE-GLOBALServiceManagementReaders' -readerrolename 'CommServiceManagementDataReader' -datawriterrolename 'CommServiceManagementDataWriter' -developerrolename 'CommServiceManagementDeveloper' -ownerRoleName 'CommServiceManagementOwner' -schemaName 'CommServiceManagement' -membername NonProdCommAdmins -datafactoryIdName 'BDAZE1IEOONDF01' -spnName 'app-glo-eoon-nonprod'
