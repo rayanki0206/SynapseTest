@@ -1,0 +1,249 @@
+name: WIP-Synapse
+
+on:       
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      appshortcode:
+          description: 'Application Shortcode : GLSM'
+          required: true
+          type: string
+      location:
+          description: 'app location'
+          required: true
+          default: "eastus"
+          type: choice
+          options:
+            - eastus
+            - westus
+            - westeurope
+            - northeurope
+            - amsterdam
+            - ashburn
+      environment:
+          description: 'environments :dev/qa/prod'
+          required: true
+          type: choice
+          options:
+            - dev
+            - qa
+            - prod
+      functional_area:
+          description: 'functionalarea : Global Services/DataOps/IT/M&Q/R&D'
+          required: true
+          type: choice
+          options:
+            - commercial
+            - dataops
+            - it
+            - global services
+            - m&q
+            - r&d
+      data_product_name:
+          description: 'dataproductname: Service Management'
+          required: true
+          default: "Service Management"
+          type: string
+      admins_group:
+          description: 'admins group: AD-SEC-ALL-GLO-GLSM-ADMINS'
+          type: string
+      developers_group:
+          description: 'developers group: AD-SEC-ALL-GLO-GLSM-DEVELOPERS'
+          type: string         
+      schema_readers_group:
+          description: 'schema readers group AZ-SEC-NONPROD-GLO-GlobalServiceManagementReaders '
+          type: string
+      data_factory_name:
+          description: 'BDAZE1IGLSMDF01'
+          type: string
+      service_principal:
+          description: 'app-glo-glsm-nonprod'
+          type: string    
+      # datalake_name:
+      #       description: 'datalake name: bdaze1irddl01'
+      #       required: true
+      #       type: string
+      # synapse_externaldata_fileformat:
+      #     description: 'external datasource file format:JSON/PARQUET/ORC/DELIMITEDTEXT'
+      #     required: true
+      #     type: choice
+      #     options:
+      #       - JSON
+      #       - PARQUET
+      #       - ORC
+      #       - DELIMITEDTEXT
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # - name: remove Cache store file
+      #   run: | 
+      #     ls
+      #     cd home/runner
+      #     if [ -f '/.Azure/keystore.cache' ]
+      #     then
+      #       rm '/.Azure/keystore.cache'
+      #     fi
+        
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          #ref: qa
+          path: infra/envs/dev
+        
+      # - name: Provide execution permissions to replacement script
+      #   working-directory: infra/envs/dev
+      #   run: | 
+      #     cd synapse
+      #     chmod 777 ./checkfile.sh
+
+      - name: Log in Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.WIP_AZURECREDENTIALS }}
+        
+      # - name: Check if inputs.auto.tfvars exists
+      #   working-directory: infra/envs/dev
+      #   run: |
+      #     cd synapse
+      #     ls
+      #     ./checkfile.sh
+
+      # - name: Generate inputs.auto.tfvars
+      #   working-directory: infra/envs/dev  
+      #   run: |
+      #     cd synapse
+      #     echo "appmnemonic = \"${{ github.event.inputs.appshortcode }}\"" >> inputs.tfvars
+      #     echo "location = \"${{ github.event.inputs.location }}\"" >> inputs.tfvars
+      #     echo "environment = \"${{ github.event.inputs.environment }}\"" >> inputs.tfvars
+      #     echo "functional_area = \"${{ github.event.inputs.functional_area }}\"" >> inputs.tfvars
+      #     echo "data_product_name = \"${{ github.event.inputs.data_product_name }}\"" >> inputs.tfvars
+          
+      #     cat inputs.tfvars
+      #     ls
+    
+      # - name: Install Terraform
+      #   uses: hashicorp/setup-terraform@v1
+      #   with:
+      #     terraform_version: "1.4.6"
+      #     terraform_wrapper: false
+      #     # cli_config_credentials_token: ${{ secrets.TFE_TOKEN }}
+
+
+      # - name: Initialize Terraform
+      #   working-directory: infra/envs/dev
+      #   run: |
+      #     cd synapse
+      #     terraform init
+
+      # - name: Run Terraform Plan
+      #   working-directory: infra/envs/dev
+      #   env:
+      #     ARM_SKIP_PROVIDER_REGISTRATION: true
+      #   run: |
+      #     cd synapse
+      #     terraform plan -var-file='inputs.tfvars'
+
+      # - name: Deploy Azure resources
+      #   working-directory: infra/envs/dev
+      #   env:
+      #     ARM_SKIP_PROVIDER_REGISTRATION: true
+      #   run: |
+      #     cd synapse
+      #     terraform apply -var-file='inputs.tfvars' -auto-approve 
+
+      - name: Generate inputs for synapse scripts
+        working-directory: infra/envs/dev
+        shell: pwsh
+        run: |
+          cd synapse
+          $outputs = .\PrepareDBInputs.ps1 -admins_group "${{github.event.inputs.admins_group}}" `
+           -developers_group "${{github.event.inputs.developers_group}}" `
+           -schema_readers_group "${{github.event.inputs.schema_readers_group}}" `
+           -data_factory_name "${{github.event.inputs.data_factory_name}}" `
+           -service_principal "${{github.event.inputs.service_principal}}" `
+           -appmnemonic "${{github.event.inputs.appshortcode}}" `
+           -environment "${{github.event.inputs.environment}}" `
+           -functional_area "${{github.event.inputs.functional_area}}" `
+           -data_product_name "${{github.event.inputs.data_product_name}}"
+          write-host $outputs
+          Add-Content -Path $env:GITHUB_ENV -Value "adminsgroupname=$($outputs.adminsgroupname)"
+          Add-Content -Path $env:GITHUB_ENV -Value "developersgroupname=$($outputs.developersgroupname)"
+          Add-Content -Path $env:GITHUB_ENV -Value "readersgroupname=$($outputs.readersgroupname)"
+          Add-Content -Path $env:GITHUB_ENV -Value "datafactoryIdName=$($outputs.datafactoryIdName)"
+          Add-Content -Path $env:GITHUB_ENV -Value "spnclientname=$($outputs.spnclientname)"
+          Add-Content -Path $env:GITHUB_ENV -Value "readerrolename=$($outputs.readerrolename)"
+          Add-Content -Path $env:GITHUB_ENV -Value "datawriterrolename=$($outputs.datawriterrolename)"
+          Add-Content -Path $env:GITHUB_ENV -Value "developerrolename=$($outputs.developerrolename)"
+          Add-Content -Path $env:GITHUB_ENV -Value "ownerRoleName=$($outputs.ownerRoleName)"
+          Add-Content -Path $env:GITHUB_ENV -Value "schemaName=$($outputs.schemaName)"
+          Add-Content -Path $env:GITHUB_ENV -Value "membername=$($outputs.membername)"
+          Add-Content -Path $env:GITHUB_ENV -Value "synapse_name=$($outputs.synapse_name)"
+          Add-Content -Path $env:GITHUB_ENV -Value "appshortcode=$($outputs.appshortcode)"
+          Add-Content -Path $env:GITHUB_ENV -Value "internalsqlservername=$($outputs.internalsqlservername)"
+          Add-Content -Path $env:GITHUB_ENV -Value "databasename=$($outputs.databasename)"
+
+
+      # - name: Export powershell outputs
+      #   working-directory: infra/envs/dev  
+      #   run: |
+      #     cd synapse
+      #     outputs=$(pwsh -Command "./PrepareDBInputs.ps1 -admins_group '${{ github.event.inputs.admins_group }}' -developers_group '${{ github.event.inputs.developers_group }}' -schema_readers_group '${{ github.event.inputs.schema_readers_group }}' -data_factory_name '${{ github.event.inputs.data_factory_name }}' -service_principal '${{ github.event.inputs.service_principal }}' -appmnemonic '${{ github.event.inputs.appshortcode }}' -environment '${{ github.event.inputs.environment }}' -functionla_area '${{ github.event.inputs.functional_area }}' -data_product_name '${{ github.event.inputs.data_product_name }}'")
+      #     echo "adminsgroupname=${{ github.event.inputs.admins_group }}" >> $GITHUB_ENV
+      #     echo "developersgroupname=${{ github.event.inputs.developers_group }}" >> $GITHUB_ENV
+      #     echo "readersgroupname=${{ github.event.inputs.schema_readers_group }}">> $GITHUB_ENV
+      #     echo "datafactoryIdName=${{ github.event.inputs.data_factory_name }}">> $GITHUB_ENV
+      #     echo "spnclientname=${{ github.event.inputs.service_principal }}">> $GITHUB_ENV
+      #     echo "readerrolename=${outputs.readerrolename}" >> $GITHUB_ENV         
+      #     echo "datawriterrolename=${outputs.datawriterrolename}" >> $GITHUB_ENV         
+      #     echo "developerrolename=${outputs.developerrolename}" >> $GITHUB_ENV         
+      #     echo "ownerRoleName=${outputs.ownerRoleName}" >> $GITHUB_ENV         
+      #     echo "schemaName=${outputs.schemaName}" >> $GITHUB_ENV         
+      #     echo "membername=${outputs.membername}" >> $GITHUB_ENV         
+      #     echo "synapse_name=${outputs.synapse_name}" >> $GITHUB_ENV         
+      #     echo "appshortcode=${outputs.appshortcode}" >> $GITHUB_ENV         
+      #     echo "internalsqlservername=${outputs.internalsqlservername}" >> $GITHUB_ENV         
+      #     echo "databasename=${outputs.databasename}" >> $GITHUB_ENV         
+          
+      - name: Generate Synapse SQL Scripts
+        working-directory: infra/envs/dev
+        shell: pwsh
+        run: |
+          cd synapse
+          ./dwscript.ps1 -adminsgroupname ${{ env.adminsgroupname }} -developersgroupname ${{ env.developersgroupname }} -readersgroupname ${{ env.readersgroupname }} -readerrolename ${{ env.readerrolename }} -datawriterrolename ${{ env.datawriterrolename }} -developerrolename ${{ env.developerrolename }} -ownerRoleName ${{ env.ownerRoleName }} -schemaName ${{ env.schemaName }} -membername ${{ env.membername }} -datafactoryIdName ${{ env.datafactoryIdName }} -spnName ${{ env.spnclientname }}
+          get-childItem -Recurse -Filter "*.sql" |Select-Object Name,FullName  |Sort-Object Name
+
+      # - name: Generate external datasource Synapse SQL Scripts
+      #   working-directory: infra/envs/dev
+      #   shell: pwsh
+      #   run: |
+      #     cd synapse
+      #     $secval=(az keyvault secret show --name "ServicePrincipal-ClientSecret" --vault-name $env:keyvaultName --query "value") 
+      #     $clientid=(az ad sp list --display-name $env:spnclientname --query [0].appId)
+      #     ./dwscriptExternal.ps1 -appshortcodename $env:appshortcode -spnclientid $clientid -spnclientsecret $secval -datalakename ${{ github.event.inputs.datalake_name }}  -datalakecontainername $env:datalake_container_name -fileformat ${{ github.event.inputs.synapse_externaldata_fileformat }} 
+      #     get-childItem -Recurse -Filter "*.sql" |Select-Object Name,FullName  |Sort-Object Name
+
+      - name: Validate and Install Az Moddule
+        working-directory: infra/envs/dev
+        shell: pwsh
+        run: |  
+          if (-not (Get-Module -Name Az))
+          {
+            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
+            Install-Module -Name Az -AllowClobber -Force
+            Install-Module -Name Az.Synapse -AllowClobber -Force
+          }
+
+      - name: Run Workspace SQL Scripts
+        working-directory: infra/envs/dev
+        shell: pwsh
+        run: |
+          cd synapse
+          $tenantid= (az ad sp list --display-name $env:spnclientname --query [0].appOwnerOrganizationId)
+          write-output $tenantid
+          $subid = (az account show --query "id")
+          $subid = $subid.Replace('"',"")
+          write-output $subid
+          ./InvokeSQLScript.ps1 -subscriptionId $subid -tenantId ${{ secrets.WIP_ARM_TENANT_ID }} -mysecret ${{ secrets.WIP_APPLICATION_CLIENT_SECRET }} -synpaseName ${{ env.synapse_name }} -sqlpoolname ${{ env.internalsqlservername }} -clientId ${{ secrets.WIP_APPLICATION_CLIENT_ID }} -databasename ${{ env.databasename }}
